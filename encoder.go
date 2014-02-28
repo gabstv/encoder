@@ -6,8 +6,18 @@ package encoder
 // Supported tags:
 // 	 - "out" if it sets to "false", value won't be set to field
 import (
+	"bytes"
 	"encoding/json"
+	"encoding/xml"
+	"errors"
+	"net/http"
 	"reflect"
+	"strings"
+)
+
+const (
+	JSON = "json"
+	XML  = "xml"
 )
 
 // An Encoder implements an encoding format of values to be sent as response to
@@ -27,6 +37,7 @@ func Must(data []byte, err error) []byte {
 }
 
 type JsonEncoder struct{}
+type XMLEncoder struct{}
 
 // jsonEncoder is an Encoder that produces JSON-formatted responses.
 func (_ JsonEncoder) Encode(v ...interface{}) ([]byte, error) {
@@ -55,6 +66,55 @@ func (_ JsonEncoder) Encode(v ...interface{}) ([]byte, error) {
 	b, err := json.Marshal(result)
 
 	return b, err
+}
+
+// XMLEncoder is an Encoder that produces XML-formatted responses.
+func (_ XMLEncoder) Encode(v ...interface{}) ([]byte, error) {
+	var buffer bytes.Buffer
+	for _, val := range v {
+		b, _ := xml.Marshal(val)
+		buffer.Write(b)
+	}
+	return buffer.Bytes(), nil
+}
+
+type XJEncoder struct {
+	XMLEnc  XMLEncoder
+	JsonEnc JsonEncoder
+	Request *http.Request
+	Default string
+}
+
+func (x XJEncoder) Encode(v ...interface{}) ([]byte, error) {
+	ct := x.Request.Header.Get("Content-Type")
+	if len(ct) > 0 {
+		ct = strings.TrimSpace(strings.Split(ct, ";")[0])
+	}
+	if ct == "application/xml" {
+		return x.XMLEnc.Encode(v...)
+	}
+	if ct == "application/json" {
+		return x.JsonEnc.Encode(v...)
+	}
+	if len(x.Default) < 1 {
+		return x.JsonEnc.Encode(v...)
+	}
+	if x.Default == JSON {
+		return x.JsonEnc.Encode(v...)
+	}
+	if x.Default == XML {
+		return x.XMLEnc.Encode(v...)
+	}
+	return nil, errors.New("No valid Content-Type request header was provided and no valil default format provided.")
+}
+
+func NewXJEncoder(r *http.Request, defaultEncoder string) XJEncoder {
+	return XJEncoder{
+		XMLEnc:  XMLEncoder{},
+		JsonEnc: JsonEncoder{},
+		Request: r,
+		Default: defaultEncoder,
+	}
 }
 
 func copyStruct(v reflect.Value, t reflect.Type) reflect.Value {
