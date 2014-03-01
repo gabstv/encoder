@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	// "fmt"
 	"testing"
 )
@@ -12,7 +13,7 @@ type Sample struct {
 	HiddenNOmit string `json:"hidden_n_omit,omitempty" out:"false"`
 }
 
-func TestEncoder(t *testing.T) {
+func TestEncoderJSON(t *testing.T) {
 	src := &Sample{Visible: "visible", Hidden: "value of this field won't be exported", HiddenNOmit: "field will be completely omitted"}
 	dst := &Sample{}
 
@@ -23,6 +24,31 @@ func TestEncoder(t *testing.T) {
 	}
 
 	if err := json.Unmarshal(result, dst); err != nil {
+		t.Fatal("Unmarshal error:", err)
+	}
+
+	if dst.Hidden != "" {
+		t.Fatalf("Expected empty field 'Hidden', got %v\n", dst.Hidden)
+	}
+}
+
+type SampleXML struct {
+	Visible string `xml:"visible"`
+	Hidden  string `xml:"-"`
+	Omit    string `xml:"omit,omitempty"`
+}
+
+func TestEncoderXML(t *testing.T) {
+	src := &SampleXML{Visible: "visible", Hidden: "value of this field won't be exported"}
+	dst := &SampleXML{}
+
+	enc := &XMLEncoder{}
+	result, err := enc.Encode(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := xml.Unmarshal(result, dst); err != nil {
 		t.Fatal("Unmarshal error:", err)
 	}
 
