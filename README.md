@@ -78,8 +78,8 @@ import (
 )
 
 type Some struct {
-	Login    string `json:"login"`
-	Password string `json:"password" out:"false"`
+	Login    string `xml:"login"`
+	Password string `xml:"-"`
 }
 
 func main() {
