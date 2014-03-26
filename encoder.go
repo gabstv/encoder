@@ -24,6 +24,7 @@ const (
 // requests on the API endpoints.
 type Encoder interface {
 	Encode(v ...interface{}) ([]byte, error)
+	SetIndent(ident bool)
 }
 
 // Because `panic`s are caught by martini's Recovery handler, it can be used
@@ -36,12 +37,16 @@ func Must(data []byte, err error) []byte {
 	return data
 }
 
-type JsonEncoder struct{}
-type XMLEncoder struct{}
+type JsonEncoder struct {
+	indent bool
+}
+type XMLEncoder struct {
+	indent bool
+}
 
 // jsonEncoder is an Encoder that produces JSON-formatted responses.
-func (_ JsonEncoder) Encode(v ...interface{}) ([]byte, error) {
-	var data interface{} = v
+func (e JsonEncoder) Encode(v ...interface{}) ([]byte, error) {
+	/*var data interface{} = v
 	var result interface{}
 
 	if v == nil {
@@ -65,17 +70,41 @@ func (_ JsonEncoder) Encode(v ...interface{}) ([]byte, error) {
 
 	b, err := json.Marshal(result)
 
-	return b, err
-}
-
-// XMLEncoder is an Encoder that produces XML-formatted responses.
-func (_ XMLEncoder) Encode(v ...interface{}) ([]byte, error) {
+	return b, err*/
 	var buffer bytes.Buffer
 	for _, val := range v {
-		b, _ := xml.Marshal(val)
+		var b []byte
+		if e.indent {
+			b, _ = json.MarshalIndent(val, "", "  ")
+		} else {
+			b, _ = json.Marshal(val)
+		}
 		buffer.Write(b)
 	}
 	return buffer.Bytes(), nil
+}
+
+func (v JsonEncoder) SetIndent(indent bool) {
+	v.indent = indent
+}
+
+// XMLEncoder is an Encoder that produces XML-formatted responses.
+func (e XMLEncoder) Encode(v ...interface{}) ([]byte, error) {
+	var buffer bytes.Buffer
+	for _, val := range v {
+		var b []byte
+		if e.indent {
+			b, _ = xml.MarshalIndent(val, "", "  ")
+		} else {
+			b, _ = xml.Marshal(val)
+		}
+		buffer.Write(b)
+	}
+	return buffer.Bytes(), nil
+}
+
+func (v XMLEncoder) SetIndent(indent bool) {
+	v.indent = indent
 }
 
 type XJEncoder struct {
@@ -108,6 +137,11 @@ func (x XJEncoder) Encode(v ...interface{}) ([]byte, error) {
 	return nil, errors.New("No valid Content-Type request header was provided and no valil default format provided.")
 }
 
+func (v XJEncoder) SetIndent(indent bool) {
+	v.JsonEnc.SetIndent(indent)
+	v.XMLEnc.SetIndent(indent)
+}
+
 func NewXJEncoder(r *http.Request, defaultEncoder string) XJEncoder {
 	return XJEncoder{
 		XMLEnc:  XMLEncoder{},
@@ -126,6 +160,9 @@ func copyStruct(v reflect.Value, t reflect.Type) reflect.Value {
 
 	for i := 0; i < v.NumField(); i++ {
 		if tag := t.Field(i).Tag.Get("out"); tag == "false" {
+			continue
+		}
+		if tag := t.Field(i).Tag.Get("json"); tag == "-" {
 			continue
 		}
 
