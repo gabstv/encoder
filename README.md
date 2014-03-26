@@ -7,7 +7,7 @@ E.g.:
 ```go
 type Some struct {
 	Login    string        `json:"login"`
-	Password string        `json:"password,omitempty"  out:"false"`
+	Password string        `json:"-"`
 }
 ```
 
@@ -37,7 +37,7 @@ import (
 
 type Some struct {
 	Login    string `json:"login"`
-	Password string `json:"password" out:"false"`
+	Password string `json:"-"`
 }
 
 func main() {
