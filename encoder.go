@@ -24,7 +24,7 @@ const (
 // requests on the API endpoints.
 type Encoder interface {
 	Encode(v ...interface{}) ([]byte, error)
-	SetIndent(ident bool)
+	SetIndent(indent bool)
 }
 
 // Because `panic`s are caught by martini's Recovery handler, it can be used
